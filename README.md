@@ -132,6 +132,30 @@ Train in the time chamber and compress your files! Creates optimized ZIP archive
 - ⚠️ **Keep the installation folder**: Don't delete or move the folder after installation. The context menu points to these scripts.
 - 🔧 **If you move the folder**: Run `uninstall.bat` from the old location, then `install.bat` from the new location.
 - 🔄 **Updates**: To update, uninstall the old version first, then install the new one.
+- 💡 **Windows 11 Users**: On Windows 11, custom context menus appear under "Show more options" (or press Shift+F10). To see Goku's Power Menu:
+  1. Right-click on a file or folder
+  2. Click "Show more options" at the bottom of the menu
+  3. The Dragon Ball menu will appear in the classic context menu
+
+#### Enabling Classic Context Menu by Default (Windows 11)
+
+If you want the classic context menu to appear immediately without clicking "Show more options":
+
+1. Open Command Prompt or PowerShell as Administrator
+2. Run this command (creates an empty registry value that forces Windows 11 to use the classic context menu):
+   ```batch
+   reg add "HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" /f /ve
+   ```
+3. Restart Windows Explorer:
+   ```batch
+   taskkill /f /im explorer.exe && start explorer.exe
+   ```
+
+To revert back to the Windows 11 modern menu:
+```batch
+reg delete "HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" /f
+taskkill /f /im explorer.exe && start explorer.exe
+```
 
 ---
 
@@ -249,10 +273,14 @@ The installation only modifies:
 **Problem:** Right-click menu doesn't show Goku's Power Menu
 
 **Solutions:**
-1. Verify installation completed successfully
-2. Restart Windows Explorer: `taskkill /f /im explorer.exe && start explorer.exe`
-3. Check installation path hasn't been moved or deleted
-4. Re-run `install.bat`
+1. **Windows 11**: Click "Show more options" in the context menu (or press Shift+F10) to access the classic menu where custom entries appear
+2. Verify installation completed successfully
+3. Restart Windows Explorer:
+   ```batch
+   taskkill /f /im explorer.exe && start explorer.exe
+   ```
+4. Check installation path hasn't been moved or deleted
+5. Re-run `install.bat`
 
 ### Scripts Won't Execute
 

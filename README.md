@@ -142,7 +142,7 @@ Train in the time chamber and compress your files! Creates optimized ZIP archive
 If you want the classic context menu to appear immediately without clicking "Show more options":
 
 1. Open Command Prompt or PowerShell as Administrator
-2. Run this command:
+2. Run this command (creates an empty registry value that forces Windows 11 to use the classic context menu):
    ```batch
    reg add "HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" /f /ve
    ```

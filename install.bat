@@ -79,7 +79,7 @@ echo [*] Refreshing Windows Explorer...
 taskkill /f /im explorer.exe >nul 2>&1
 start explorer.exe
 
-timeout /t 2 >nul
+timeout /t 3 >nul
 
 echo.
 echo [4/4] Creating uninstaller...

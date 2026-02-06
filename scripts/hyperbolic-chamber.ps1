@@ -1,111 +1,92 @@
-# Hyperbolic Time Chamber Compression System
-# Advanced archive creation with space-time compression
+# Archive Compression Facility
+# Time chamber themed file packaging system
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)]
-    [string[]]$Paths
-)
+param([string[]]$Items)
 
-$script:ThemeColors = @{
-    Chamber = 'Cyan'
-    Success = 'Green'
-    Warning = 'Yellow'
-    Info = 'White'
-    Metric = 'Magenta'
-}
+$cfg = @{
+    Colors = @{ Core='Cyan'; Win='Green'; Warn='Yellow'; Text='White'; Stat='Magenta' }
+    Intro = @'
 
-function Show-ChamberEntrance {
-    $entranceArt = @'
-
-    🌀═══════════════════════════════════════════🌀
-      H Y P E R B O L I C   T I M E   C H A M B E R
-    🌀═══════════════════════════════════════════🌀
-       >> Space-Time Compression Initialized <<
-    ═════════════════════════════════════════════
-
+    🌀═══ TIME CHAMBER COMPRESSION ═══🌀
+         Spatial reduction active
+    
 '@
-    Write-Host $entranceArt -ForegroundColor $script:ThemeColors.Chamber
 }
 
-function Get-ValidTargets {
-    param([string[]]$TargetPaths)
+Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+
+function Collect-ValidSources {
+    param($list)
     
-    $validList = @()
+    $collection = @()
     
-    Write-Host "📦 Preparing items for chamber entry:" -ForegroundColor $script:ThemeColors.Info
+    Write-Host "📦 Items for compression:" -Fore $cfg.Colors.Text
     
-    foreach ($targetPath in $TargetPaths) {
-        if (Test-Path -LiteralPath $targetPath) {
-            $itemData = Get-Item -LiteralPath $targetPath -Force
-            $validList += @{
-                Path = $targetPath
-                Object = $itemData
-                IsFolder = $itemData.PSIsContainer
+    foreach ($entry in $list) {
+        if (Test-Path -LiteralPath $entry) {
+            $obj = Get-Item -LiteralPath $entry -Force
+            $collection += @{
+                Loc = $entry
+                Obj = $obj
+                Dir = $obj.PSIsContainer
             }
             
-            $icon = if ($itemData.PSIsContainer) { "📁" } else { "📄" }
-            $sizeInfo = if (-not $itemData.PSIsContainer) {
-                $sizeKB = [math]::Round($itemData.Length / 1KB, 2)
-                " ($sizeKB KB)"
-            } else {
-                ""
-            }
+            $icon = if ($obj.PSIsContainer) { "📁" } else { "📄" }
+            $detail = if (-not $obj.PSIsContainer) {
+                $kb = [math]::Round($obj.Length / 1KB, 2)
+                " ($kb KB)"
+            } else { "" }
             
-            Write-Host ("  {0} {1}{2}" -f $icon, $itemData.Name, $sizeInfo) -ForegroundColor $script:ThemeColors.Chamber
+            Write-Host ("  {0} {1}{2}" -f $icon, $obj.Name, $detail) -Fore $cfg.Colors.Core
         }
     }
     
-    return $validList
+    return $collection
 }
 
-function Request-ArchiveConfiguration {
-    param($SourceItems)
+function Request-ArchiveName {
+    param($sources)
     
-    $firstSource = $SourceItems[0].Object
-    $parentDirectory = if ($firstSource.PSIsContainer) {
-        $firstSource.Parent.FullName
+    $first = $sources[0].Obj
+    $folder = if ($first.PSIsContainer) {
+        $first.Parent.FullName
     } else {
-        $firstSource.Directory.FullName
+        $first.Directory.FullName
     }
     
-    $defaultArchiveName = if ($SourceItems.Count -eq 1) {
-        $firstSource.BaseName
+    $suggestion = if ($sources.Count -eq 1) {
+        $first.BaseName
     } else {
-        "Compressed_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        "Archive_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
     }
     
     Write-Host ""
-    Write-Host "💾 Archive Configuration:" -ForegroundColor $script:ThemeColors.Success
-    $archiveName = Read-Host "  Enter archive name (default: $defaultArchiveName)"
+    Write-Host "💾 Archive naming:" -Fore $cfg.Colors.Win
+    $input = Read-Host "  Name (default: $suggestion)"
     
-    if ([string]::IsNullOrWhiteSpace($archiveName)) {
-        $archiveName = $defaultArchiveName
+    $final = if ([string]::IsNullOrWhiteSpace($input)) { $suggestion } else { $input }
+    
+    if (-not $final.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
+        $final += '.zip'
     }
-    
-    if (-not $archiveName.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
-        $archiveName += '.zip'
-    }
-    
-    $fullArchivePath = Join-Path $parentDirectory $archiveName
     
     return @{
-        Path = $fullArchivePath
-        Name = $archiveName
-        Directory = $parentDirectory
+        FullPath = Join-Path $folder $final
+        Name = $final
+        Folder = $folder
     }
 }
 
-function Test-ArchiveConflict {
-    param($ArchiveConfig)
+function Handle-Collision {
+    param($config)
     
-    if (Test-Path -LiteralPath $ArchiveConfig.Path) {
+    if (Test-Path -LiteralPath $config.FullPath) {
         Write-Host ""
-        Write-Host ("⚠️  Archive exists: {0}" -f $ArchiveConfig.Name) -ForegroundColor $script:ThemeColors.Warning
-        $response = Read-Host "  Replace existing archive? (Y/N)"
+        Write-Host ("⚠️  File exists: {0}" -f $config.Name) -Fore $cfg.Colors.Warn
+        $choice = Read-Host "  Overwrite? (Y/N)"
         
-        if ($response -eq 'Y' -or $response -eq 'y') {
-            Remove-Item -LiteralPath $ArchiveConfig.Path -Force
+        if ($choice -eq 'Y' -or $choice -eq 'y') {
+            Remove-Item -LiteralPath $config.FullPath -Force
             return $true
         }
         return $false
@@ -113,172 +94,152 @@ function Test-ArchiveConflict {
     return $true
 }
 
-function Measure-OriginalSize {
-    param($SourceItems)
+function Measure-TotalVolume {
+    param($sources)
     
-    [long]$totalSize = 0
+    [long]$total = 0
     
-    foreach ($source in $SourceItems) {
-        if ($source.IsFolder) {
-            $folderFiles = Get-ChildItem -LiteralPath $source.Path -File -Recurse -Force -ErrorAction SilentlyContinue
-            $folderSize = ($folderFiles | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-            if ($null -ne $folderSize) {
-                $totalSize += $folderSize
-            }
+    foreach ($src in $sources) {
+        if ($src.Dir) {
+            $files = Get-ChildItem -LiteralPath $src.Loc -File -Recurse -Force -EA SilentlyContinue
+            $volume = ($files | Measure-Object -Property Length -Sum -EA SilentlyContinue).Sum
+            if ($null -ne $volume) { $total += $volume }
         } else {
-            $totalSize += $source.Object.Length
+            $total += $src.Obj.Length
         }
     }
     
-    return $totalSize
+    return $total
 }
 
-function New-TemporaryChamber {
-    $chamberPath = Join-Path $env:TEMP ("Chamber_" + (Get-Date -Format 'yyyyMMddHHmmss'))
-    New-Item -ItemType Directory -Path $chamberPath -Force | Out-Null
-    return $chamberPath
+function Create-StagingArea {
+    $path = Join-Path $env:TEMP ("Staging_" + (Get-Date -Format 'yyyyMMddHHmmss'))
+    New-Item -ItemType Directory -Path $path -Force | Out-Null
+    return $path
 }
 
-function Copy-ItemsToChamber {
-    param(
-        [array]$Sources,
-        [string]$ChamberPath
-    )
+function Stage-Content {
+    param($sources, $staging)
     
-    foreach ($source in $Sources) {
-        $targetPath = Join-Path $ChamberPath $source.Object.Name
+    foreach ($src in $sources) {
+        $dest = Join-Path $staging $src.Obj.Name
         
-        if ($source.IsFolder) {
-            Copy-Item -LiteralPath $source.Path -Destination $targetPath -Recurse -Force -ErrorAction Stop
+        if ($src.Dir) {
+            Copy-Item -LiteralPath $src.Loc -Destination $dest -Recurse -Force -EA Stop
         } else {
-            Copy-Item -LiteralPath $source.Path -Destination $targetPath -Force -ErrorAction Stop
+            Copy-Item -LiteralPath $src.Loc -Destination $dest -Force -EA Stop
         }
     }
 }
 
-function Invoke-CompressionSequence {
-    param(
-        [array]$SourceItems,
-        [hashtable]$ArchiveConfig
-    )
+function Perform-Compression {
+    param($sources, $config)
     
     Write-Host ""
-    Write-Host "🌀 Entering chamber dimensions..." -ForegroundColor $script:ThemeColors.Chamber
-    Write-Host "   (Compression in progress - standby)" -ForegroundColor DarkGray
+    Write-Host "🌀 Compressing spatial data..." -Fore $cfg.Colors.Core
+    Write-Host "   (Processing - please wait)" -Fore DarkGray
     
-    $temporaryChamber = New-TemporaryChamber
+    $staging = Create-StagingArea
     
     try {
-        Copy-ItemsToChamber -Sources $SourceItems -ChamberPath $temporaryChamber
+        Stage-Content -sources $sources -staging $staging
         
-        Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
-        
-        [System.IO.Compression.ZipFile]::CreateFromDirectory(
-            $temporaryChamber,
-            $ArchiveConfig.Path,
-            [System.IO.Compression.CompressionLevel]::Optimal,
+        [IO.Compression.ZipFile]::CreateFromDirectory(
+            $staging,
+            $config.FullPath,
+            [IO.Compression.CompressionLevel]::Optimal,
             $false
         )
         
         return $true
-        
     } catch {
         Write-Host ""
-        Write-Host ("❌ Compression failed: {0}" -f $_.Exception.Message) -ForegroundColor $script:ThemeColors.Warning
+        Write-Host ("❌ Compression error: {0}" -f $_.Exception.Message) -Fore $cfg.Colors.Warn
         return $false
-        
     } finally {
-        if (Test-Path $temporaryChamber) {
-            Remove-Item -LiteralPath $temporaryChamber -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path $staging) {
+            Remove-Item -LiteralPath $staging -Recurse -Force -EA SilentlyContinue
         }
     }
 }
 
-function Show-CompressionMetrics {
-    param(
-        [long]$OriginalBytes,
-        [string]$ArchivePath
-    )
+function Display-Statistics {
+    param($originalVol, $archiveLoc)
     
-    $archiveItem = Get-Item -LiteralPath $ArchivePath
-    $compressedBytes = $archiveItem.Length
+    $archive = Get-Item -LiteralPath $archiveLoc
+    $compressedVol = $archive.Length
     
-    $reductionPercent = if ($OriginalBytes -gt 0) {
-        [math]::Round((1 - ($compressedBytes / $OriginalBytes)) * 100, 2)
-    } else {
-        0
-    }
+    $reduction = if ($originalVol -gt 0) {
+        [math]::Round((1 - ($compressedVol / $originalVol)) * 100, 2)
+    } else { 0 }
     
-    $originalMB = [math]::Round($OriginalBytes / 1MB, 2)
-    $compressedMB = [math]::Round($compressedBytes / 1MB, 2)
+    $origMB = [math]::Round($originalVol / 1MB, 2)
+    $compMB = [math]::Round($compressedVol / 1MB, 2)
     
     Write-Host ""
-    Write-Host "✓ Chamber training complete!" -ForegroundColor $script:ThemeColors.Success
+    Write-Host "✓ Compression sequence complete" -Fore $cfg.Colors.Win
     Write-Host ""
-    Write-Host "📊 Compression Analytics:" -ForegroundColor $script:ThemeColors.Metric
-    Write-Host ("  Original   : {0:N2} MB" -f $originalMB) -ForegroundColor $script:ThemeColors.Info
-    Write-Host ("  Compressed : {0:N2} MB" -f $compressedMB) -ForegroundColor $script:ThemeColors.Info
-    Write-Host ("  Reduction  : {0}%" -f $reductionPercent) -ForegroundColor $script:ThemeColors.Success
-    Write-Host ("  Location   : {0}" -f $ArchivePath) -ForegroundColor $script:ThemeColors.Info
+    Write-Host "📊 Results:" -Fore $cfg.Colors.Stat
+    Write-Host ("  Before  : {0:N2} MB" -f $origMB) -Fore $cfg.Colors.Text
+    Write-Host ("  After   : {0:N2} MB" -f $compMB) -Fore $cfg.Colors.Text
+    Write-Host ("  Saved   : {0}%" -f $reduction) -Fore $cfg.Colors.Win
+    Write-Host ("  Archive : {0}" -f $archiveLoc) -Fore $cfg.Colors.Text
     
-    # Training multiplier easter egg
-    if ($reductionPercent -gt 0) {
-        $multiplier = [math]::Floor(100 / (100 - $reductionPercent))
-        if ($multiplier -gt 1) {
+    if ($reduction -gt 0) {
+        $factor = [math]::Floor(100 / (100 - $reduction))
+        if ($factor -gt 1) {
             Write-Host ""
-            Write-Host ("🥋 Training Efficiency: {0}x multiplier" -f $multiplier) -ForegroundColor $script:ThemeColors.Metric
-            Write-Host ("   Space saved equals {0} days of training!" -f $multiplier) -ForegroundColor DarkGray
+            Write-Host ("🥋 Efficiency factor: {0}x" -f $factor) -Fore $cfg.Colors.Stat
+            Write-Host ("   Equivalent to {0} training sessions!" -f $factor) -Fore DarkGray
         }
     }
 }
 
-function Open-ArchiveLocation {
-    param([string]$ArchivePath)
+function Open-Result {
+    param($path)
     
     Write-Host ""
-    Write-Host "📂 Revealing archive location..." -ForegroundColor $script:ThemeColors.Info
-    Start-Process 'explorer.exe' -ArgumentList ("/select,`"$ArchivePath`"")
+    Write-Host "📂 Opening archive folder..." -Fore $cfg.Colors.Text
+    Start-Process 'explorer.exe' -ArgumentList ("/select,`"$path`"")
 }
 
-# Main chamber sequence
+# Execute compression
 try {
-    Show-ChamberEntrance
+    Write-Host $cfg.Intro -Fore $cfg.Colors.Core
     
-    $validSources = Get-ValidTargets -TargetPaths $Paths
+    $sources = Collect-ValidSources -list $Items
     
-    if ($validSources.Count -eq 0) {
+    if ($sources.Count -eq 0) {
         Write-Host ""
-        Write-Host "❌ No valid items to compress!" -ForegroundColor $script:ThemeColors.Warning
-        Start-Sleep -Seconds 2
+        Write-Host "❌ No items to compress" -Fore $cfg.Colors.Warn
+        Start-Sleep 2
         exit 0
     }
     
-    $archiveSettings = Request-ArchiveConfiguration -SourceItems $validSources
+    $archiveConfig = Request-ArchiveName -sources $sources
     
-    $canProceed = Test-ArchiveConflict -ArchiveConfig $archiveSettings
-    if (-not $canProceed) {
+    if (-not (Handle-Collision -config $archiveConfig)) {
         Write-Host ""
-        Write-Host "❌ Operation cancelled" -ForegroundColor $script:ThemeColors.Warning
-        Start-Sleep -Seconds 2
+        Write-Host "❌ Cancelled" -Fore $cfg.Colors.Warn
+        Start-Sleep 2
         exit 0
     }
     
-    $originalSize = Measure-OriginalSize -SourceItems $validSources
+    $originalSize = Measure-TotalVolume -sources $sources
     
-    $compressionSuccess = Invoke-CompressionSequence -SourceItems $validSources -ArchiveConfig $archiveSettings
+    $success = Perform-Compression -sources $sources -config $archiveConfig
     
-    if ($compressionSuccess) {
-        Show-CompressionMetrics -OriginalBytes $originalSize -ArchivePath $archiveSettings.Path
-        Open-ArchiveLocation -ArchivePath $archiveSettings.Path
+    if ($success) {
+        Display-Statistics -originalVol $originalSize -archiveLoc $archiveConfig.FullPath
+        Open-Result -path $archiveConfig.FullPath
     }
     
     Write-Host ""
-    Write-Host "[Press any key to exit chamber]"
+    Write-Host "[Press any key]"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
 } catch {
     Write-Host ""
-    Write-Host ("⚠ Chamber Error: {0}" -f $_.Exception.Message) -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Write-Host ("⚠ System error: {0}" -f $_.Exception.Message) -Fore Red
+    Start-Sleep 2
     exit 1
 }

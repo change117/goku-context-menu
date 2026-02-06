@@ -1,188 +1,156 @@
-# Instant Transmission Teleportation Module
-# Rapid file relocation system with dimensional coordinates
+# Spatial Relocation Engine
+# Quantum file transfer to predefined zones
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)]
-    [string[]]$Paths
-)
+param([string[]]$Sources)
 
-$script:UIColors = @{
-    Teleport = 'Magenta'
-    Success = 'Green'
-    Warn = 'Yellow'
-    Error = 'Red'
-    Info = 'Cyan'
-}
+$env = @{
+    Theme = @{ Portal='Magenta'; Pass='Green'; Alert='Yellow'; Fail='Red'; Data='Cyan' }
+    Title = @'
 
-function Show-TeleportHeader {
-    $bannerText = @'
-
-    ✨════════════════════════════════════════════✨
-         I N S T A N T   T R A N S M I S S I O N
-    ✨════════════════════════════════════════════✨
-       >> Dimensional Coordinate Selector <<
-    ════════════════════════════════════════════════
-
+    ✨═══ QUANTUM TELEPORTATION ═══✨
+       Dimensional Transfer Active
+    
 '@
-    Write-Host $bannerText -ForegroundColor $script:UIColors.Teleport
 }
 
-function Get-DimensionalCoordinates {
-    $shellApp = New-Object -ComObject Shell.Application
-    $downloadPath = $shellApp.NameSpace('shell:Downloads').Self.Path
+function Build-ZoneRegistry {
+    $shell = New-Object -ComObject Shell.Application
     
-    $coordinates = [ordered]@{
-        '1' = @{ Label = "Desktop Zone"; Location = [Environment]::GetFolderPath("Desktop") }
-        '2' = @{ Label = "Documents Realm"; Location = [Environment]::GetFolderPath("MyDocuments") }
-        '3' = @{ Label = "Downloads Sector"; Location = $downloadPath }
-        '4' = @{ Label = "Pictures Dimension"; Location = [Environment]::GetFolderPath("MyPictures") }
-        '5' = @{ Label = "Videos Chamber"; Location = [Environment]::GetFolderPath("MyVideos") }
-        '6' = @{ Label = "Music Domain"; Location = [Environment]::GetFolderPath("MyMusic") }
+    return [ordered]@{
+        '1' = @{ Tag="Desktop Sector"; Dir=[Environment]::GetFolderPath("Desktop") }
+        '2' = @{ Tag="Document Vault"; Dir=[Environment]::GetFolderPath("MyDocuments") }
+        '3' = @{ Tag="Download Bay"; Dir=$shell.NameSpace('shell:Downloads').Self.Path }
+        '4' = @{ Tag="Image Gallery"; Dir=[Environment]::GetFolderPath("MyPictures") }
+        '5' = @{ Tag="Video Archive"; Dir=[Environment]::GetFolderPath("MyVideos") }
+        '6' = @{ Tag="Audio Chamber"; Dir=[Environment]::GetFolderPath("MyMusic") }
     }
-    
-    return $coordinates
 }
 
-function Show-ItemsToTeleport {
-    param([string[]]$ItemPaths)
+function Display-SourceItems {
+    param($items)
     
-    Write-Host "`n📦 Items ready for transmission:" -ForegroundColor $script:UIColors.Info
+    Write-Host "`n📦 Items queued for transport:" -Fore $env.Theme.Data
     
-    $validCount = 0
-    foreach ($itemPath in $ItemPaths) {
-        if (Test-Path -LiteralPath $itemPath) {
-            $itemObj = Get-Item -LiteralPath $itemPath -Force
-            Write-Host "  ► $($itemObj.Name)" -ForegroundColor $script:UIColors.Teleport
-            $validCount++
+    $valid = 0
+    foreach ($src in $items) {
+        if (Test-Path -LiteralPath $src) {
+            $obj = Get-Item -LiteralPath $src -Force
+            Write-Host "  ► $($obj.Name)" -Fore $env.Theme.Portal
+            $valid++
         }
     }
-    
-    return $validCount
+    return $valid
 }
 
-function Show-CoordinateMenu {
-    param($CoordinateMap)
+function Render-ZoneOptions {
+    param($registry)
     
-    Write-Host "`n🌟 Available Destinations:" -ForegroundColor $script:UIColors.Success
+    Write-Host "`n🌟 Available zones:" -Fore $env.Theme.Pass
     
-    foreach ($key in $CoordinateMap.Keys) {
-        $dest = $CoordinateMap[$key]
-        Write-Host ("  [{0}] {1}" -f $key, $dest.Label) -ForegroundColor White
-        Write-Host ("      Path: {0}" -f $dest.Location) -ForegroundColor DarkGray
+    foreach ($k in $registry.Keys) {
+        $zone = $registry[$k]
+        Write-Host ("  [{0}] {1}" -f $k, $zone.Tag) -Fore White
+        Write-Host ("      → {0}" -f $zone.Dir) -Fore DarkGray
     }
 }
 
-function Resolve-NameConflict {
-    param(
-        [string]$OriginalPath,
-        [string]$TargetDirectory
-    )
+function Generate-UniquePath {
+    param($original, $destFolder)
     
-    $itemInfo = Get-Item -LiteralPath $OriginalPath
-    $proposedName = $itemInfo.Name
-    $finalPath = Join-Path $TargetDirectory $proposedName
+    $item = Get-Item -LiteralPath $original
+    $proposed = $item.Name
+    $target = Join-Path $destFolder $proposed
     
-    $iteration = 1
-    while (Test-Path -LiteralPath $finalPath) {
-        if ($itemInfo.PSIsContainer) {
-            $proposedName = "{0} ({1})" -f $itemInfo.BaseName, $iteration
+    $idx = 1
+    while (Test-Path -LiteralPath $target) {
+        if ($item.PSIsContainer) {
+            $proposed = "$($item.BaseName)_$idx"
         } else {
-            $nameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($itemInfo.Name)
-            $extension = $itemInfo.Extension
-            $proposedName = "{0} ({1}){2}" -f $nameWithoutExt, $iteration, $extension
+            $name = [IO.Path]::GetFileNameWithoutExtension($item.Name)
+            $ext = $item.Extension
+            $proposed = "${name}_${idx}${ext}"
         }
-        $finalPath = Join-Path $TargetDirectory $proposedName
-        $iteration++
+        $target = Join-Path $destFolder $proposed
+        $idx++
     }
     
-    return $finalPath
+    return $target
 }
 
-function Invoke-TeleportSequence {
-    param(
-        [string[]]$Sources,
-        [hashtable]$Destination
-    )
+function Execute-Transfer {
+    param($sources, $zone)
     
-    Write-Host "`n✨ Initiating teleportation sequence..." -ForegroundColor $script:UIColors.Teleport
-    Write-Host ("   Target: {0}" -f $Destination.Label) -ForegroundColor $script:UIColors.Info
+    Write-Host "`n✨ Quantum transfer initiated..." -Fore $env.Theme.Portal
+    Write-Host ("   Destination: {0}" -f $zone.Tag) -Fore $env.Theme.Data
     
-    $stats = @{
-        Teleported = 0
-        Failed = 0
-    }
+    $metrics = @{ Moved=0; Failed=0 }
     
-    foreach ($srcPath in $Sources) {
-        if (-not (Test-Path -LiteralPath $srcPath)) {
-            continue
-        }
+    foreach ($src in $sources) {
+        if (-not (Test-Path -LiteralPath $src)) { continue }
         
         try {
-            $itemObj = Get-Item -LiteralPath $srcPath -Force
-            $destPath = Resolve-NameConflict -OriginalPath $srcPath -TargetDirectory $Destination.Location
+            $item = Get-Item -LiteralPath $src -Force
+            $dest = Generate-UniquePath -original $src -destFolder $zone.Dir
             
-            Move-Item -LiteralPath $srcPath -Destination $destPath -Force -ErrorAction Stop
+            Move-Item -LiteralPath $src -Destination $dest -Force -EA Stop
             
-            $destName = Split-Path -Leaf $destPath
-            Write-Host ("  ✓ {0} → {1}" -f $itemObj.Name, $destName) -ForegroundColor $script:UIColors.Success
-            $stats.Teleported++
-            
+            $destName = Split-Path -Leaf $dest
+            Write-Host ("  ✓ {0} → {1}" -f $item.Name, $destName) -Fore $env.Theme.Pass
+            $metrics.Moved++
         } catch {
-            Write-Host ("  ✗ Failed: {0}" -f $itemObj.Name) -ForegroundColor $script:UIColors.Error
-            Write-Host ("    Reason: {0}" -f $_.Exception.Message) -ForegroundColor DarkRed
-            $stats.Failed++
+            Write-Host ("  ✗ Failed: {0}" -f $item.Name) -Fore $env.Theme.Fail
+            Write-Host ("    {0}" -f $_.Exception.Message) -Fore DarkRed
+            $metrics.Failed++
         }
     }
     
-    return $stats
+    return $metrics
 }
 
-function Show-TransmissionResults {
-    param($Statistics, $DestinationInfo)
+function Display-TransferStats {
+    param($stats, $zone)
     
-    Write-Host "`n════════════════════════════════════════════════" -ForegroundColor $script:UIColors.Teleport
-    Write-Host "✨ Transmission Complete!" -ForegroundColor $script:UIColors.Success
-    Write-Host "════════════════════════════════════════════════" -ForegroundColor $script:UIColors.Teleport
-    Write-Host ("  Successfully teleported: {0}" -f $Statistics.Teleported) -ForegroundColor $script:UIColors.Success
-    Write-Host ("  Failed transmissions: {0}" -f $Statistics.Failed) -ForegroundColor $script:UIColors.Warn
+    Write-Host "`n════════════════════════════════" -Fore $env.Theme.Portal
+    Write-Host "✨ Transfer sequence complete" -Fore $env.Theme.Pass
+    Write-Host "════════════════════════════════" -Fore $env.Theme.Portal
+    Write-Host ("  Transferred: {0}" -f $stats.Moved) -Fore $env.Theme.Pass
+    Write-Host ("  Errors: {0}" -f $stats.Failed) -Fore $env.Theme.Alert
     
-    if ($Statistics.Teleported -gt 0) {
-        Write-Host "`n📂 Opening destination portal..." -ForegroundColor $script:UIColors.Info
-        Start-Process 'explorer.exe' -ArgumentList $DestinationInfo.Location
+    if ($stats.Moved -gt 0) {
+        Write-Host "`n📂 Opening destination..." -Fore $env.Theme.Data
+        Start-Process 'explorer.exe' -ArgumentList $zone.Dir
     }
 }
 
-# Main transmission process
+# Main execution
 try {
-    Show-TeleportHeader
+    Write-Host $env.Title -Fore $env.Theme.Portal
     
-    $validItems = Show-ItemsToTeleport -ItemPaths $Paths
+    $count = Display-SourceItems -items $Sources
     
-    if ($validItems -eq 0) {
-        Write-Host "`n⚠ No valid items found for teleportation!" -ForegroundColor $script:UIColors.Warn
-        Start-Sleep -Seconds 2
+    if ($count -eq 0) {
+        Write-Host "`n⚠ No valid items for transfer" -Fore $env.Theme.Alert
+        Start-Sleep 2
         exit 0
     }
     
-    $dimensionMap = Get-DimensionalCoordinates
-    Show-CoordinateMenu -CoordinateMap $dimensionMap
+    $zones = Build-ZoneRegistry
+    Render-ZoneOptions -registry $zones
     
-    $userChoice = Read-Host "`nSelect destination (1-6)"
+    $selection = Read-Host "`nSelect zone (1-6)"
     
-    if ($dimensionMap.ContainsKey($userChoice)) {
-        $selectedDest = $dimensionMap[$userChoice]
-        $results = Invoke-TeleportSequence -Sources $Paths -Destination $selectedDest
-        Show-TransmissionResults -Statistics $results -DestinationInfo $selectedDest
+    if ($zones.ContainsKey($selection)) {
+        $targetZone = $zones[$selection]
+        $outcome = Execute-Transfer -sources $Sources -zone $targetZone
+        Display-TransferStats -stats $outcome -zone $targetZone
     } else {
-        Write-Host "`n❌ Invalid coordinates! Teleportation aborted." -ForegroundColor $script:UIColors.Error
+        Write-Host "`n❌ Invalid zone selection" -Fore $env.Theme.Fail
     }
     
-    Write-Host "`n[Press any key to continue]"
+    Write-Host "`n[Press any key]"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
 } catch {
-    Write-Host "`n⚠ Transmission Error: $($_.Exception.Message)" -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Write-Host "`n⚠ Transfer error: $($_.Exception.Message)" -Fore Red
+    Start-Sleep 2
     exit 1
 }

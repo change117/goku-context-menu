@@ -1,162 +1,129 @@
 @echo off
-REM Goku Context Menu - Installation Script
-REM Dragon Ball Z Themed Right-Click Menu for Windows 11
-REM Author: Goku Context Menu Project
+setlocal enabledelayedexpansion
 
-title Goku Context Menu - Installation
+title Dragon Ball Context Menu Setup
 color 0E
 
 echo.
 echo ============================================================
-echo    _____ ____  _  ___    _   __  __ _____ _   _ _   _ 
-echo   / ____/ __ \^| ^|/ / ^|  ^| ^| ^|  \/  ^|  ___^| ^| ^| ^| ^| ^| ^|
-echo  ^| ^|  _^| ^|  ^| ^| ' /^| ^|  ^| ^| ^| ^|\/^| ^| ^|_  ^| ^|^_^| ^| ^| ^| ^|
-echo  ^| ^|_^| ^| ^|__^| ^| . \^| ^|__^| ^| ^| ^|  ^| ^|  _^| ^|  _  ^| ^|_^| ^|
-echo   \_____\____/^|_^|\_\\____/  ^|_^|  ^|_^|_^|   ^|_^| ^|_^|\___/ 
-echo.
-echo        GOKU'S POWER MENU - INSTALLATION WIZARD
+echo       DRAGON BALL CONTEXT MENU INSTALLATION
 echo ============================================================
 echo.
 
-REM Check for PowerShell
 where powershell >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] PowerShell is not installed or not in PATH!
-    echo This tool requires PowerShell 5.1 or later.
+    echo [X] PowerShell not found
+    echo     This requires PowerShell 5.1+
     pause
     exit /b 1
 )
 
-REM Get installation directory (current directory)
-set "INSTALL_DIR=%~dp0"
-REM Remove trailing backslash
-if "%INSTALL_DIR:~-1%"=="\" set "INSTALL_DIR=%INSTALL_DIR:~0,-1%"
+set "DRAGON_HOME=%~dp0"
+if "%DRAGON_HOME:~-1%"=="\" set "DRAGON_HOME=%DRAGON_HOME:~0,-1%"
 
-echo [INFO] Installation Directory: %INSTALL_DIR%
+echo [*] Install location: %DRAGON_HOME%
 echo.
 
-REM Check if scripts directory exists
-if not exist "%INSTALL_DIR%\scripts" (
-    echo [ERROR] Scripts directory not found!
-    echo Please ensure all files are extracted correctly.
+echo [1/4] Checking installation files...
+
+set "missing="
+if not exist "%DRAGON_HOME%\scripts\super-saiyan.ps1" set "missing=!missing! super-saiyan.ps1"
+if not exist "%DRAGON_HOME%\scripts\kamehameha.ps1" set "missing=!missing! kamehameha.ps1"
+if not exist "%DRAGON_HOME%\scripts\instant-transmission.ps1" set "missing=!missing! instant-transmission.ps1"
+if not exist "%DRAGON_HOME%\scripts\power-scanner.ps1" set "missing=!missing! power-scanner.ps1"
+if not exist "%DRAGON_HOME%\scripts\shenron-menu.ps1" set "missing=!missing! shenron-menu.ps1"
+if not exist "%DRAGON_HOME%\scripts\hyperbolic-chamber.ps1" set "missing=!missing! hyperbolic-chamber.ps1"
+
+if defined missing (
+    echo [X] Missing: !missing!
     pause
     exit /b 1
 )
 
-REM Verify all required scripts exist
-echo [1/4] Verifying installation files...
-set "MISSING_FILES="
-if not exist "%INSTALL_DIR%\scripts\super-saiyan.ps1" set "MISSING_FILES=!MISSING_FILES! super-saiyan.ps1"
-if not exist "%INSTALL_DIR%\scripts\kamehameha.ps1" set "MISSING_FILES=!MISSING_FILES! kamehameha.ps1"
-if not exist "%INSTALL_DIR%\scripts\instant-transmission.ps1" set "MISSING_FILES=!MISSING_FILES! instant-transmission.ps1"
-if not exist "%INSTALL_DIR%\scripts\power-scanner.ps1" set "MISSING_FILES=!MISSING_FILES! power-scanner.ps1"
-if not exist "%INSTALL_DIR%\scripts\shenron-menu.ps1" set "MISSING_FILES=!MISSING_FILES! shenron-menu.ps1"
-if not exist "%INSTALL_DIR%\scripts\hyperbolic-chamber.ps1" set "MISSING_FILES=!MISSING_FILES! hyperbolic-chamber.ps1"
+echo [OK] All scripts found
 
-if defined MISSING_FILES (
-    echo [ERROR] Missing required files: %MISSING_FILES%
+echo.
+echo [2/4] Building registry configuration...
+
+set "REG_TEMP=%TEMP%\dragon-menu-setup.reg"
+
+powershell -Command "(Get-Content '%DRAGON_HOME%\menu-template.reg') -replace '%%DRAGON_HOME%%', '%DRAGON_HOME:\=\\%' | Set-Content '%REG_TEMP%'"
+
+if not exist "%REG_TEMP%" (
+    echo [X] Registry file generation failed
     pause
     exit /b 1
 )
-echo [OK] All files verified!
 
-REM Create registry file from template
+echo [OK] Registry file ready
+
 echo.
-echo [2/4] Generating registry entries...
-set "REG_FILE=%TEMP%\goku-menu-install.reg"
-
-REM Read template and replace INSTALL_PATH
-powershell -Command "(Get-Content '%INSTALL_DIR%\goku-menu.reg.template') -replace '%%INSTALL_PATH%%', '%INSTALL_DIR:\=\\%' | Set-Content '%REG_FILE%'"
-
-if not exist "%REG_FILE%" (
-    echo [ERROR] Failed to generate registry file!
-    pause
-    exit /b 1
-)
-echo [OK] Registry file generated!
-
-REM Import registry entries
+echo [3/4] Applying registry entries...
 echo.
-echo [3/4] Installing context menu entries...
-echo.
-echo [WARNING] You will see a confirmation dialog from Registry Editor.
-echo           Click "Yes" to proceed with the installation.
+echo     You will see a registry editor prompt
+echo     Click YES to install the context menu
 echo.
 pause
 
-regedit /s "%REG_FILE%"
+regedit /s "%REG_TEMP%"
 
 if %errorlevel% equ 0 (
-    echo [OK] Registry entries installed successfully!
+    echo [OK] Registry entries applied
 ) else (
-    echo [ERROR] Failed to install registry entries!
-    echo Please run this script with appropriate permissions.
+    echo [X] Registry installation failed
     pause
     exit /b 1
 )
 
-REM Clean up temporary registry file
-del "%REG_FILE%" >nul 2>nul
+del "%REG_TEMP%" >nul 2>nul
 
-REM Create uninstaller with correct path
 echo.
 echo [4/4] Creating uninstaller...
-set "UNINSTALL_SCRIPT=%INSTALL_DIR%\uninstall-generated.bat"
+
+set "UNINSTALL=%DRAGON_HOME%\remove-menu.bat"
+
 (
     echo @echo off
-    echo title Goku Context Menu - Uninstallation
+    echo title Dragon Ball Menu Removal
     echo color 0C
     echo.
-    echo ============================================================
-    echo          GOKU'S POWER MENU - UNINSTALLATION
-    echo ============================================================
+    echo Removing Dragon Ball context menu...
     echo.
-    echo This will remove Goku's Power Menu from your system.
+    echo Deleting file entries...
+    reg delete "HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu" /f ^>nul 2^>^&1
+    echo Deleting folder entries...
+    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu" /f ^>nul 2^>^&1
+    echo Deleting background entries...
+    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\DragonMenu" /f ^>nul 2^>^&1
     echo.
-    pause
+    echo [OK] Context menu removed
     echo.
-    echo Removing context menu entries...
-    echo.
-    echo Removing file context menu...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\*\shell\GokuMenu" /f >nul 2^>^&1
-    echo Removing folder context menu...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\shell\GokuMenu" /f >nul 2^>^&1
-    echo Removing background context menu...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\GokuMenu" /f >nul 2^>^&1
-    echo.
-    echo [OK] Goku's Power Menu has been removed from your system.
-    echo.
-    echo NOTE: The installation files are still present in:
-    echo %INSTALL_DIR%
-    echo You can safely delete this folder if you want to completely remove all files.
+    echo Installation files remain at:
+    echo %DRAGON_HOME%
     echo.
     pause
-) > "%UNINSTALL_SCRIPT%"
+) > "%UNINSTALL%"
 
-echo [OK] Uninstaller created: %UNINSTALL_SCRIPT%
+echo [OK] Uninstaller created: remove-menu.bat
 
-REM Success message
 echo.
 echo ============================================================
 echo.
-echo   ✓ Installation Complete! Your power level is OVER 9000!
+echo   [OK] Installation Complete!
 echo.
 echo ============================================================
 echo.
-echo Goku's Power Menu has been successfully installed!
+echo Dragon Ball context menu is now active.
+echo Right-click any file or folder to access the menu.
 echo.
-echo You can now right-click on any file or folder to see the menu.
+echo Available options:
+echo   - Super Saiyan Mode (admin access^)
+echo   - Kamehameha (safe delete^)
+echo   - Instant Transmission (quick move^)
+echo   - Power Scanner (file info^)
+echo   - Summon Shenron (utilities^)
+echo   - Time Chamber (compression^)
 echo.
-echo Available Options:
-echo   🔥 Super Saiyan Mode - Open with admin privileges
-echo   ⚡ Kamehameha - Safe delete with confirmation
-echo   🌟 Instant Transmission - Quick move to common folders
-echo   💪 Power Level Scanner - Detailed file properties
-echo   🐉 Summon Shenron - Custom actions submenu
-echo   📁 Hyperbolic Time Chamber - Compress to ZIP
-echo.
-echo To uninstall, run: uninstall-generated.bat
-echo.
-echo ============================================================
+echo To remove: Run remove-menu.bat
 echo.
 pause

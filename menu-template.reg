@@ -1,0 +1,99 @@
+Windows Registry Editor Version 5.00
+
+; Dragon Ball Context Menu Registry Configuration
+; User-level Windows shell integration
+
+; ====== FILE CONTEXT ENTRIES ======
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu]
+@="🔥 Goku's Power Menu"
+"MUIVerb"="🔥 Goku's Power Menu"
+"SubCommands"=""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt1]
+@="🔥 Super Saiyan Mode"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt1\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%DRAGON_HOME%\\scripts\\super-saiyan.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt2]
+@="⚡ Kamehameha"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt2\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\kamehameha.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt3]
+@="🌟 Instant Transmission"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt3\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\instant-transmission.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt4]
+@="💪 Power Scanner"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt4\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\power-scanner.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt5]
+@="🐉 Summon Shenron"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt5\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\shenron-menu.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt6]
+@="📁 Time Chamber"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu\shell\Opt6\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\hyperbolic-chamber.ps1\" \"%1\""
+
+; ====== FOLDER CONTEXT ENTRIES ======
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu]
+@="🔥 Goku's Power Menu"
+"MUIVerb"="🔥 Goku's Power Menu"
+"SubCommands"=""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt1]
+@="🔥 Super Saiyan Mode"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt1\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%DRAGON_HOME%\\scripts\\super-saiyan.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt2]
+@="⚡ Kamehameha"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt2\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\kamehameha.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt3]
+@="🌟 Instant Transmission"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt3\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\instant-transmission.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt4]
+@="💪 Power Scanner"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt4\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\power-scanner.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt5]
+@="🐉 Summon Shenron"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt5\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\shenron-menu.ps1\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt6]
+@="📁 Time Chamber"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu\shell\Opt6\command]
+@="powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%DRAGON_HOME%\\scripts\\hyperbolic-chamber.ps1\" \"%1\""
+
+; ====== BACKGROUND CONTEXT ======
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\DragonMenu]
+@="🔥 Goku's Power Menu"
+"MUIVerb"="🔥 Goku's Power Menu"
+"SubCommands"=""
+
+; NOTE: %DRAGON_HOME% placeholder will be replaced during installation

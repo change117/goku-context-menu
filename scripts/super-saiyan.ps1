@@ -1,109 +1,70 @@
-# Super Saiyan Elevation Module
-# Provides administrative privilege escalation with themed interface
+# Elite Privilege Escalator
+# Dragon Ball themed administrative access module
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true, Position=0)]
-    [ValidateNotNullOrEmpty()]
-    [string]$Path
-)
+param([string]$TargetResource)
 
-# Configuration
-$script:ThemeColor = @{
-    Primary = 'Yellow'
-    Success = 'Green'
-    Error = 'Red'
-    Info = 'Cyan'
+$cfg = @{ Colors = @{ Pri='Yellow'; Ok='Green'; Err='Red'; Txt='Cyan' }; Banner = @'
+    
+    ═══ SUPER SAIYAN TRANSFORMATION ═══
+    Escalating to maximum power level...
+    
+'@ }
+
+function Test-AdminContext { 
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-function Show-GokuBanner {
-    $artWork = @'
-    
-    ⚡ TRANSFORMATION SEQUENCE INITIATED ⚡
-    ╔══════════════════════════════════════╗
-    ║   SUPER SAIYAN ACTIVATION MODE       ║
-    ║   Power Surge Detected: OVER 9000!   ║
-    ╚══════════════════════════════════════╝
-    
-'@
-    Write-Host $artWork -ForegroundColor $script:ThemeColor.Primary
+function Get-ItemCategory { 
+    param($res)
+    return (Get-Item -LiteralPath $res -Force -EA SilentlyContinue).PSIsContainer
 }
 
-function Test-ElevatedPrivileges {
-    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
-    $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
-    return $principal.IsInRole($adminRole)
-}
-
-function Invoke-PathWithElevation {
-    param([string]$TargetPath)
+function Launch-WithPrivilege {
+    param($resource, $isFolder)
     
-    $itemProperties = Get-Item -LiteralPath $TargetPath -Force -ErrorAction Stop
-    $launchParams = @{
-        Verb = 'RunAs'
-        ErrorAction = 'Stop'
-    }
+    $params = @{ Verb='RunAs'; ErrorAction='Stop' }
     
-    if ($itemProperties.PSIsContainer) {
-        $launchParams.FilePath = 'explorer.exe'
-        $launchParams.ArgumentList = "`"$TargetPath`""
+    if ($isFolder) {
+        $params.FilePath = 'explorer.exe'
+        $params.ArgumentList = "`"$resource`""
     } else {
-        $launchParams.FilePath = $TargetPath
+        $params.FilePath = $resource
     }
     
-    Start-Process @launchParams
+    Start-Process @params
 }
 
-function Start-TransformationSequence {
-    param([string]$TargetPath)
+function Request-Elevation {
+    param($scriptFile, $target)
     
-    Show-GokuBanner
+    $args = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptFile`" `"$target`""
+    Start-Process 'powershell.exe' -ArgumentList $args -Verb RunAs -EA Stop
+}
+
+# Main flow
+try {
+    Write-Host $cfg.Banner -Fore $cfg.Colors.Pri
     
-    $pathExists = Test-Path -LiteralPath $TargetPath -ErrorAction SilentlyContinue
-    if (-not $pathExists) {
-        Write-Host "⚠ ERROR: Target does not exist in this dimension!" -ForegroundColor $script:ThemeColor.Error
-        Start-Sleep -Seconds 3
+    if (-not (Test-Path -LiteralPath $TargetResource)) {
+        Write-Host "⚠ Target not accessible in this dimension" -Fore $cfg.Colors.Err
+        Start-Sleep 2
         exit 1
     }
     
-    $hasAdminPowers = Test-ElevatedPrivileges
-    
-    if ($hasAdminPowers) {
-        Write-Host "✓ Super Saiyan form already achieved!" -ForegroundColor $script:ThemeColor.Success
-        Write-Host "  Accessing: $TargetPath" -ForegroundColor $script:ThemeColor.Info
-        
-        try {
-            Invoke-PathWithElevation -TargetPath $TargetPath
-            Write-Host "`n⚡ Access granted with maximum power!" -ForegroundColor $script:ThemeColor.Success
-        } catch {
-            Write-Host "⚠ Transformation incomplete: $($_.Exception.Message)" -ForegroundColor $script:ThemeColor.Error
-            Start-Sleep -Seconds 3
-            exit 1
-        }
+    if (Test-AdminContext) {
+        Write-Host "✓ Already transformed - executing with full power" -Fore $cfg.Colors.Ok
+        $category = Get-ItemCategory -res $TargetResource
+        Launch-WithPrivilege -resource $TargetResource -isFolder $category
+        Write-Host "`n⚡ Transformation complete" -Fore $cfg.Colors.Ok
     } else {
-        Write-Host "⚡ Gathering energy for transformation..." -ForegroundColor $script:ThemeColor.Primary
-        
-        $scriptLocation = $MyInvocation.MyCommand.Path
-        $psArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptLocation`" -Path `"$TargetPath`""
-        
-        try {
-            Start-Process 'powershell.exe' -ArgumentList $psArgs -Verb RunAs -ErrorAction Stop
-        } catch {
-            Write-Host "⚠ Transformation rejected: $($_.Exception.Message)" -ForegroundColor $script:ThemeColor.Error
-            Start-Sleep -Seconds 3
-            exit 1
-        }
+        Write-Host "⚡ Initiating power-up sequence..." -Fore $cfg.Colors.Pri
+        Request-Elevation -scriptFile $MyInvocation.MyCommand.Path -target $TargetResource
     }
     
-    Start-Sleep -Seconds 2
-}
-
-# Main execution
-try {
-    Start-TransformationSequence -TargetPath $Path
+    Start-Sleep 2
 } catch {
-    Write-Host "⚠ Critical failure: $($_.Exception.Message)" -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Write-Host "⚠ Power surge failed: $($_.Exception.Message)" -Fore Red
+    Start-Sleep 2
     exit 1
 }

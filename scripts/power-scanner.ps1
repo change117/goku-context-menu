@@ -1,245 +1,199 @@
-# Power Level Detection System
-# Advanced metadata extraction and analysis tool
+# Metadata Extraction Scanner
+# Deep analysis tool for files and directories
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true, Position=0)]
-    [ValidateNotNullOrEmpty()]
-    [string]$Path
-)
+param([string]$Subject)
 
-$script:DisplayColors = @{
-    Header = 'Green'
-    Label = 'Cyan'
-    Data = 'White'
-    Metric = 'Yellow'
-    Divider = 'DarkGray'
-}
+$ui = @{
+    Scheme = @{ Prime='Green'; Tag='Cyan'; Val='White'; Num='Yellow'; Sep='DarkGray' }
+    Banner = @'
 
-function Show-ScannerBanner {
-    $banner = @'
-
-    🔍═══════════════════════════════════════════🔍
-       P O W E R   L E V E L   D E T E C T O R
-    🔍═══════════════════════════════════════════🔍
-         >> Initiating Deep Scan Protocol <<
-    ═════════════════════════════════════════════
-
+    🔍═══ DEEP SCAN PROTOCOL ═══🔍
+       Analyzing target signature...
+    
 '@
-    Write-Host $banner -ForegroundColor $script:DisplayColors.Header
 }
 
-function Get-ItemMetrics {
-    param([string]$TargetPath)
+function Compute-SizeLabel {
+    param([long]$raw)
     
-    if (-not (Test-Path -LiteralPath $TargetPath)) {
-        throw "Target path does not exist: $TargetPath"
-    }
-    
-    $targetItem = Get-Item -LiteralPath $TargetPath -Force
-    
-    $metrics = @{
-        Item = $targetItem
-        IsContainer = $targetItem.PSIsContainer
-        BasicInfo = @{}
-        TimeInfo = @{}
-        AttributeInfo = @{}
-        ExtendedInfo = @{}
-    }
-    
-    return $metrics
-}
-
-function Get-ContainerAnalysis {
-    param($DirectoryPath)
-    
-    $analysis = @{
-        FileCount = 0
-        FolderCount = 0
-        TotalBytes = 0
-        TypeDistribution = @{}
-    }
-    
-    try {
-        $allFiles = Get-ChildItem -LiteralPath $DirectoryPath -File -Recurse -Force -ErrorAction SilentlyContinue
-        $allFolders = Get-ChildItem -LiteralPath $DirectoryPath -Directory -Recurse -Force -ErrorAction SilentlyContinue
-        
-        $analysis.FileCount = ($allFiles | Measure-Object).Count
-        $analysis.FolderCount = ($allFolders | Measure-Object).Count
-        $analysis.TotalBytes = ($allFiles | Measure-Object -Property Length -Sum).Sum
-        
-        $typeGroups = $allFiles | Group-Object Extension | Sort-Object Count -Descending | Select-Object -First 5
-        foreach ($group in $typeGroups) {
-            $extName = if ([string]::IsNullOrEmpty($group.Name)) { "[no extension]" } else { $group.Name }
-            $analysis.TypeDistribution[$extName] = $group.Count
-        }
-    } catch {
-        # Silently handle permission errors
-    }
-    
-    return $analysis
-}
-
-function Format-ByteSize {
-    param([long]$Bytes)
-    
-    $units = @(
-        @{Suffix = "bytes"; Divisor = 1}
-        @{Suffix = "KB"; Divisor = 1KB}
-        @{Suffix = "MB"; Divisor = 1MB}
-        @{Suffix = "GB"; Divisor = 1GB}
+    $tiers = @(
+        @{Label="B"; Factor=1}
+        @{Label="KB"; Factor=1KB}
+        @{Label="MB"; Factor=1MB}
+        @{Label="GB"; Factor=1GB}
     )
     
-    $selectedUnit = $units[0]
-    foreach ($unit in $units) {
-        if ($Bytes -ge $unit.Divisor) {
-            $selectedUnit = $unit
+    $pick = $tiers[0]
+    foreach ($t in $tiers) {
+        if ($raw -ge $t.Factor) { $pick = $t }
+    }
+    
+    $num = [math]::Round($raw / $pick.Factor, 2)
+    return "{0:N2} {1}" -f $num, $pick.Label
+}
+
+function Calculate-Strength {
+    param([long]$size)
+    return [math]::Floor($size / 100)
+}
+
+function Scan-Container {
+    param($path)
+    
+    $data = @{ Files=0; Folders=0; Volume=0; Types=@{} }
+    
+    try {
+        $files = Get-ChildItem -LiteralPath $path -File -Recurse -Force -EA SilentlyContinue
+        $folders = Get-ChildItem -LiteralPath $path -Directory -Recurse -Force -EA SilentlyContinue
+        
+        $data.Files = ($files | Measure-Object).Count
+        $data.Folders = ($folders | Measure-Object).Count
+        $data.Volume = ($files | Measure-Object -Property Length -Sum).Sum
+        
+        $groups = $files | Group-Object Extension | Sort-Object Count -Descending | Select-Object -First 5
+        foreach ($g in $groups) {
+            $ext = if ([string]::IsNullOrEmpty($g.Name)) { "[none]" } else { $g.Name }
+            $data.Types[$ext] = $g.Count
         }
-    }
+    } catch {}
     
-    $value = [math]::Round($Bytes / $selectedUnit.Divisor, 2)
-    return "{0:N2} {1}" -f $value, $selectedUnit.Suffix
+    return $data
 }
 
-function Calculate-PowerLevel {
-    param([long]$SizeInBytes)
+function Render-BasicInfo {
+    param($obj)
     
-    $baseLevel = [math]::Floor($SizeInBytes / 100)
-    return $baseLevel
+    $category = if ($obj.PSIsContainer) { "📁 Folder" } else { "📄 File" }
+    
+    Write-Host "═════════════════════════════════════" -Fore $ui.Scheme.Sep
+    Write-Host "🎯 SUBJECT IDENTIFICATION" -Fore $ui.Scheme.Prime
+    Write-Host "═════════════════════════════════════" -Fore $ui.Scheme.Sep
+    Write-Host ""
+    Write-Host "  Name    : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.Name -Fore $ui.Scheme.Val
+    Write-Host "  Type    : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $category -Fore $ui.Scheme.Val
+    Write-Host "  Path    : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.FullName -Fore $ui.Scheme.Val
 }
 
-function Show-BasicMetadata {
-    param($Metrics)
+function Render-Chronology {
+    param($obj)
     
-    $itemType = if ($Metrics.IsContainer) { "📁 Directory" } else { "📄 File" }
-    
-    Write-Host "═════════════════════════════════════════════" -ForegroundColor $script:DisplayColors.Divider
-    Write-Host "🎯 TARGET ANALYSIS" -ForegroundColor $script:DisplayColors.Header
-    Write-Host "═════════════════════════════════════════════" -ForegroundColor $script:DisplayColors.Divider
     Write-Host ""
-    Write-Host "  Name       : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $Metrics.Item.Name -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Type       : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $itemType -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Location   : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $Metrics.Item.FullName -ForegroundColor $script:DisplayColors.Data
+    Write-Host "⏰ TIME COORDINATES" -Fore $ui.Scheme.Prime
+    Write-Host "  Born    : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.CreationTime.ToString("yyyy-MM-dd HH:mm:ss") -Fore $ui.Scheme.Val
+    Write-Host "  Changed : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss") -Fore $ui.Scheme.Val
+    Write-Host "  Viewed  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.LastAccessTime.ToString("yyyy-MM-dd HH:mm:ss") -Fore $ui.Scheme.Val
 }
 
-function Show-TemporalData {
-    param($ItemObject)
+function Render-Properties {
+    param($obj)
+    
+    $hidden = ($obj.Attributes -band [IO.FileAttributes]::Hidden) -ne 0
+    $locked = $obj.IsReadOnly
     
     Write-Host ""
-    Write-Host "⏰ TEMPORAL METRICS" -ForegroundColor $script:DisplayColors.Header
-    Write-Host "  Created    : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $ItemObject.CreationTime.ToString("yyyy-MM-dd HH:mm:ss") -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Modified   : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $ItemObject.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss") -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Accessed   : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $ItemObject.LastAccessTime.ToString("yyyy-MM-dd HH:mm:ss") -ForegroundColor $script:DisplayColors.Data
+    Write-Host "🏷️  FLAGS & ATTRIBUTES" -Fore $ui.Scheme.Prime
+    Write-Host "  Flags   : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $obj.Attributes.ToString() -Fore $ui.Scheme.Val
+    Write-Host "  Locked  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $(if ($locked) { "Yes ✓" } else { "No ✗" }) -Fore $ui.Scheme.Val
+    Write-Host "  Hidden  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $(if ($hidden) { "Yes ✓" } else { "No ✗" }) -Fore $ui.Scheme.Val
 }
 
-function Show-AttributeData {
-    param($ItemObject)
-    
-    $isHidden = ($ItemObject.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
-    $isReadOnly = $ItemObject.IsReadOnly
+function Render-FileData {
+    param($obj)
     
     Write-Host ""
-    Write-Host "🏷️  ATTRIBUTE FLAGS" -ForegroundColor $script:DisplayColors.Header
-    Write-Host "  Flags      : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $ItemObject.Attributes.ToString() -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Read-Only  : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $(if ($isReadOnly) { "Yes ✓" } else { "No ✗" }) -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Hidden     : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $(if ($isHidden) { "Yes ✓" } else { "No ✗" }) -ForegroundColor $script:DisplayColors.Data
-}
-
-function Show-FileDetails {
-    param($ItemObject)
+    Write-Host "📄 FILE ANALYSIS" -Fore $ui.Scheme.Prime
+    Write-Host "  Volume  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host (Compute-SizeLabel -raw $obj.Length) -Fore $ui.Scheme.Val
+    Write-Host "  Format  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $(if ($obj.Extension) { $obj.Extension } else { "[none]" }) -Fore $ui.Scheme.Val
     
+    $level = Calculate-Strength -size $obj.Length
     Write-Host ""
-    Write-Host "📄 FILE METRICS" -ForegroundColor $script:DisplayColors.Header
-    Write-Host "  Size       : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host (Format-ByteSize -Bytes $ItemObject.Length) -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Extension  : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $(if ($ItemObject.Extension) { $ItemObject.Extension } else { "[none]" }) -ForegroundColor $script:DisplayColors.Data
-    
-    $powerLevel = Calculate-PowerLevel -SizeInBytes $ItemObject.Length
-    Write-Host ""
-    if ($powerLevel -gt 9000) {
-        Write-Host "  ⚡ POWER LEVEL: IT'S OVER 9000!!! ⚡" -ForegroundColor $script:DisplayColors.Metric
+    if ($level -gt 9000) {
+        Write-Host "  ⚡ STRENGTH: BEYOND 9000!!! ⚡" -Fore $ui.Scheme.Num
     } else {
-        Write-Host ("  ⚡ POWER LEVEL: {0} ⚡" -f $powerLevel) -ForegroundColor $script:DisplayColors.Metric
+        Write-Host ("  ⚡ STRENGTH: {0} ⚡" -f $level) -Fore $ui.Scheme.Num
     }
     
-    # Hash computation for smaller files
-    if ($ItemObject.Length -lt 50MB -and $ItemObject.Length -gt 0) {
+    if ($obj.Length -lt 50MB -and $obj.Length -gt 0) {
         try {
             Write-Host ""
-            Write-Host "🔐 INTEGRITY HASH" -ForegroundColor $script:DisplayColors.Header
-            $hashData = Get-FileHash -LiteralPath $ItemObject.FullName -Algorithm SHA256 -ErrorAction Stop
-            Write-Host "  SHA256     : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-            Write-Host $hashData.Hash -ForegroundColor $script:DisplayColors.Data
-        } catch {
-            # Skip hash display on error
-        }
+            Write-Host "🔐 CHECKSUM DATA" -Fore $ui.Scheme.Prime
+            $hash = Get-FileHash -LiteralPath $obj.FullName -Algorithm SHA256 -EA Stop
+            Write-Host "  SHA256  : " -NoNewline -Fore $ui.Scheme.Tag
+            Write-Host $hash.Hash -Fore $ui.Scheme.Val
+        } catch {}
     }
 }
 
-function Show-DirectoryDetails {
-    param($ItemObject)
+function Render-FolderData {
+    param($obj)
     
     Write-Host ""
-    Write-Host "📁 DIRECTORY ANALYSIS" -ForegroundColor $script:DisplayColors.Header
+    Write-Host "📁 CONTAINER ANALYSIS" -Fore $ui.Scheme.Prime
     
-    $dirAnalysis = Get-ContainerAnalysis -DirectoryPath $ItemObject.FullName
+    $scan = Scan-Container -path $obj.FullName
     
-    Write-Host "  Files      : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $dirAnalysis.FileCount -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Folders    : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host $dirAnalysis.FolderCount -ForegroundColor $script:DisplayColors.Data
-    Write-Host "  Total Size : " -NoNewline -ForegroundColor $script:DisplayColors.Label
-    Write-Host (Format-ByteSize -Bytes $dirAnalysis.TotalBytes) -ForegroundColor $script:DisplayColors.Data
+    Write-Host "  Files   : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $scan.Files -Fore $ui.Scheme.Val
+    Write-Host "  Folders : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host $scan.Folders -Fore $ui.Scheme.Val
+    Write-Host "  Volume  : " -NoNewline -Fore $ui.Scheme.Tag
+    Write-Host (Compute-SizeLabel -raw $scan.Volume) -Fore $ui.Scheme.Val
     
-    if ($dirAnalysis.TypeDistribution.Count -gt 0) {
+    if ($scan.Types.Count -gt 0) {
         Write-Host ""
-        Write-Host "📊 TOP FILE TYPES" -ForegroundColor $script:DisplayColors.Header
-        foreach ($typeEntry in $dirAnalysis.TypeDistribution.GetEnumerator()) {
-            Write-Host ("  {0,-15}: {1} files" -f $typeEntry.Key, $typeEntry.Value) -ForegroundColor $script:DisplayColors.Data
+        Write-Host "📊 FORMAT DISTRIBUTION" -Fore $ui.Scheme.Prime
+        foreach ($entry in $scan.Types.GetEnumerator()) {
+            Write-Host ("  {0,-12}: {1} files" -f $entry.Key, $entry.Value) -Fore $ui.Scheme.Val
         }
     }
 }
 
-function Show-ScanComplete {
+function Render-Complete {
     Write-Host ""
-    Write-Host "═════════════════════════════════════════════" -ForegroundColor $script:DisplayColors.Divider
-    Write-Host "✓ Scan Complete" -ForegroundColor $script:DisplayColors.Header
-    Write-Host "═════════════════════════════════════════════" -ForegroundColor $script:DisplayColors.Divider
+    Write-Host "═════════════════════════════════════" -Fore $ui.Scheme.Sep
+    Write-Host "✓ Scan finished" -Fore $ui.Scheme.Prime
+    Write-Host "═════════════════════════════════════" -Fore $ui.Scheme.Sep
 }
 
-# Execute scanning sequence
+# Main scanner
 try {
-    Show-ScannerBanner
+    Write-Host $ui.Banner -Fore $ui.Scheme.Prime
     
-    $analysisData = Get-ItemMetrics -TargetPath $Path
-    
-    Show-BasicMetadata -Metrics $analysisData
-    Show-TemporalData -ItemObject $analysisData.Item
-    Show-AttributeData -ItemObject $analysisData.Item
-    
-    if ($analysisData.IsContainer) {
-        Show-DirectoryDetails -ItemObject $analysisData.Item
-    } else {
-        Show-FileDetails -ItemObject $analysisData.Item
+    if (-not (Test-Path -LiteralPath $Subject)) {
+        Write-Host "⚠ Subject not found" -Fore Red
+        Start-Sleep 2
+        exit 1
     }
     
-    Show-ScanComplete
+    $target = Get-Item -LiteralPath $Subject -Force
     
-    Write-Host "`n[Press any key to exit scanner]"
+    Render-BasicInfo -obj $target
+    Render-Chronology -obj $target
+    Render-Properties -obj $target
+    
+    if ($target.PSIsContainer) {
+        Render-FolderData -obj $target
+    } else {
+        Render-FileData -obj $target
+    }
+    
+    Render-Complete
+    
+    Write-Host "`n[Press any key]"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
 } catch {
-    Write-Host "`n⚠ Scanner Error: $($_.Exception.Message)" -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Write-Host "`n⚠ Scanner fault: $($_.Exception.Message)" -Fore Red
+    Start-Sleep 2
     exit 1
 }

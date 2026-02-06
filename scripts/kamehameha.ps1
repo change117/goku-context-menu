@@ -1,162 +1,132 @@
-# Kamehameha Deletion System
-# Secure file obliteration with energy wave confirmation
+# Destructive Energy Wave System
+# File elimination with safety protocols
 
-[CmdletBinding()]
-param(
-    [Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)]
-    [string[]]$Paths
-)
+param([string[]]$Targets)
 
-$script:ColorScheme = @{
-    Wave = 'Blue'
-    Alert = 'Red'
-    Charge = 'Cyan'
-    Victory = 'Green'
-    Neutral = 'Yellow'
-}
+$ctx = @{
+    Palette = @{ Wave='Blue'; Danger='Red'; Glow='Cyan'; Win='Green'; Neu='Yellow' }
+    Header = @'
 
-function Write-EnergyWaveHeader {
-    $headerArt = @'
-
-    ═══════════════════════════════════════════════
-         K A M E H A M E H A   S Y S T E M
-    ═══════════════════════════════════════════════
-         ⚡ DESTRUCTIVE WAVE GENERATOR ⚡
-    ═══════════════════════════════════════════════
-
+    ═══ ENERGY WAVE ELIMINATION ═══
+        Kamehameha Charging...
+    
 '@
-    Write-Host $headerArt -ForegroundColor $script:ColorScheme.Wave
 }
 
-function Get-TargetInformation {
-    param([string[]]$TargetList)
+function Build-TargetManifest {
+    param($list)
     
-    $targetData = @()
-    foreach ($targetPath in $TargetList) {
-        if (Test-Path -LiteralPath $targetPath) {
-            $itemData = Get-Item -LiteralPath $targetPath -Force
-            $info = [PSCustomObject]@{
-                Path = $targetPath
-                Name = $itemData.Name
-                IsDirectory = $itemData.PSIsContainer
-                Size = if ($itemData.PSIsContainer) { 0 } else { $itemData.Length }
+    $manifest = @()
+    foreach ($entry in $list) {
+        if (Test-Path -LiteralPath $entry) {
+            $obj = Get-Item -LiteralPath $entry -Force
+            $manifest += [PSCustomObject]@{
+                Location = $entry
+                Label = $obj.Name
+                Folder = $obj.PSIsContainer
+                Bytes = if ($obj.PSIsContainer) { 0 } else { $obj.Length }
             }
-            $targetData += $info
         }
     }
-    return $targetData
+    return $manifest
 }
 
-function Show-TargetList {
-    param([array]$Targets)
+function Render-TargetDisplay {
+    param($manifest)
     
-    Write-Host "`n🎯 Locked-on Targets:" -ForegroundColor $script:ColorScheme.Neutral
+    Write-Host "`n🎯 Targets in range:" -Fore $ctx.Palette.Neu
     
-    foreach ($target in $Targets) {
-        $icon = if ($target.IsDirectory) { "📁" } else { "📄" }
-        $sizeDisplay = if ($target.Size -gt 0) {
-            $kb = [math]::Round($target.Size / 1KB, 2)
+    foreach ($item in $manifest) {
+        $glyph = if ($item.Folder) { "📁" } else { "📄" }
+        $metric = if ($item.Bytes -gt 0) {
+            $kb = [math]::Round($item.Bytes / 1KB, 2)
             "($kb KB)"
-        } else {
-            "(Directory)"
-        }
-        Write-Host "  $icon $($target.Name) $sizeDisplay" -ForegroundColor $script:ColorScheme.Charge
+        } else { "(Folder)" }
+        
+        Write-Host "  $glyph $($item.Label) $metric" -Fore $ctx.Palette.Glow
     }
 }
 
-function Request-WaveConfirmation {
-    Write-Host "`n" -NoNewline
-    Write-Host "⚠️  DANGER ZONE ACTIVATED ⚠️" -ForegroundColor $script:ColorScheme.Alert
-    Write-Host "Unleashing this energy wave will permanently destroy all targets!" -ForegroundColor $script:ColorScheme.Neutral
-    Write-Host "`nSafety Protocol: Type the exact phrase 'KAMEHAMEHA' to proceed" -ForegroundColor $script:ColorScheme.Neutral
+function Get-SafetyConfirmation {
+    Write-Host "`n⚠️  CRITICAL: IRREVERSIBLE DESTRUCTION ⚠️" -Fore $ctx.Palette.Danger
+    Write-Host "Safety protocol requires exact phrase entry" -Fore $ctx.Palette.Neu
     
-    $userInput = Read-Host "`nConfirmation"
-    return ($userInput -ceq "KAMEHAMEHA")
+    $input = Read-Host "`nType 'KAMEHAMEHA' to proceed"
+    return ($input -ceq "KAMEHAMEHA")
 }
 
-function Invoke-EnergyWave {
-    param([array]$Targets)
+function Execute-Obliteration {
+    param($manifest)
     
-    Write-Host "`n⚡ Charging energy..." -ForegroundColor $script:ColorScheme.Wave
-    Start-Sleep -Milliseconds 300
-    Write-Host "⚡ KA..." -ForegroundColor $script:ColorScheme.Wave -NoNewline
-    Start-Sleep -Milliseconds 200
-    Write-Host "ME..." -ForegroundColor $script:ColorScheme.Wave -NoNewline
-    Start-Sleep -Milliseconds 200
-    Write-Host "HA..." -ForegroundColor $script:ColorScheme.Wave -NoNewline
-    Start-Sleep -Milliseconds 200
-    Write-Host "ME..." -ForegroundColor $script:ColorScheme.Wave -NoNewline
-    Start-Sleep -Milliseconds 200
-    Write-Host "HAAAAAA!" -ForegroundColor $script:ColorScheme.Charge
+    Write-Host "`n⚡ Energy concentration..." -Fore $ctx.Palette.Wave
+    Start-Sleep -Milliseconds 250
     
-    $results = @{
-        Destroyed = 0
-        Failed = 0
-        Errors = @()
+    $sequence = @("KA", "ME", "HA", "ME")
+    foreach ($syllable in $sequence) {
+        Write-Host "⚡ $syllable..." -Fore $ctx.Palette.Wave -NoNewline
+        Start-Sleep -Milliseconds 180
     }
+    Write-Host "HAAAAAA!" -Fore $ctx.Palette.Glow
     
-    foreach ($target in $Targets) {
+    $stats = @{ Success=0; Fail=0; Errors=@() }
+    
+    foreach ($target in $manifest) {
         try {
-            if (Test-Path -LiteralPath $target.Path) {
-                Remove-Item -LiteralPath $target.Path -Recurse -Force -ErrorAction Stop
-                Write-Host "  ✓ Obliterated: $($target.Name)" -ForegroundColor $script:ColorScheme.Victory
-                $results.Destroyed++
+            if (Test-Path -LiteralPath $target.Location) {
+                Remove-Item -LiteralPath $target.Location -Recurse -Force -EA Stop
+                Write-Host "  ✓ Eliminated: $($target.Label)" -Fore $ctx.Palette.Win
+                $stats.Success++
             }
         } catch {
-            Write-Host "  ✗ Deflected: $($target.Name)" -ForegroundColor $script:ColorScheme.Alert
-            $results.Failed++
-            $results.Errors += $_.Exception.Message
+            Write-Host "  ✗ Resisted: $($target.Label)" -Fore $ctx.Palette.Danger
+            $stats.Fail++
+            $stats.Errors += $_.Exception.Message
         }
     }
     
-    return $results
+    return $stats
 }
 
-function Show-BattleReport {
-    param($Results)
+function Display-Results {
+    param($outcome)
     
-    Write-Host "`n═══════════════════════════════════════════════" -ForegroundColor $script:ColorScheme.Wave
-    Write-Host "💥 ENERGY WAVE COMPLETE!" -ForegroundColor $script:ColorScheme.Victory
-    Write-Host "═══════════════════════════════════════════════" -ForegroundColor $script:ColorScheme.Wave
-    Write-Host "  Obliterated: $($Results.Destroyed)" -ForegroundColor $script:ColorScheme.Victory
-    Write-Host "  Survived: $($Results.Failed)" -ForegroundColor $script:ColorScheme.Alert
+    Write-Host "`n═══════════════════════════════" -Fore $ctx.Palette.Wave
+    Write-Host "💥 Wave execution finished" -Fore $ctx.Palette.Win
+    Write-Host "═══════════════════════════════" -Fore $ctx.Palette.Wave
+    Write-Host "  Eliminated: $($outcome.Success)" -Fore $ctx.Palette.Win
+    Write-Host "  Protected: $($outcome.Fail)" -Fore $ctx.Palette.Danger
     
-    if ($Results.Errors.Count -gt 0) {
-        Write-Host "`n⚠ Deflection Details:" -ForegroundColor $script:ColorScheme.Neutral
-        foreach ($err in $Results.Errors) {
-            Write-Host "    • $err" -ForegroundColor $script:ColorScheme.Alert
-        }
+    if ($outcome.Errors.Count -gt 0) {
+        Write-Host "`n⚠ Error log:" -Fore $ctx.Palette.Neu
+        $outcome.Errors | ForEach-Object { Write-Host "    • $_" -Fore $ctx.Palette.Danger }
     }
 }
 
-# Execute deletion sequence
+# Execute
 try {
-    Write-EnergyWaveHeader
+    Write-Host $ctx.Header -Fore $ctx.Palette.Wave
     
-    $targetObjects = Get-TargetInformation -TargetList $Paths
+    $manifest = Build-TargetManifest -list $Targets
     
-    if ($targetObjects.Count -eq 0) {
-        Write-Host "`n⚠ No valid targets detected!" -ForegroundColor $script:ColorScheme.Alert
-        Start-Sleep -Seconds 2
+    if ($manifest.Count -eq 0) {
+        Write-Host "`n⚠ No valid targets detected" -Fore $ctx.Palette.Danger
+        Start-Sleep 2
         exit 0
     }
     
-    Show-TargetList -Targets $targetObjects
+    Render-TargetDisplay -manifest $manifest
     
-    $confirmed = Request-WaveConfirmation
-    
-    if ($confirmed) {
-        $battleResults = Invoke-EnergyWave -Targets $targetObjects
-        Show-BattleReport -Results $battleResults
+    if (Get-SafetyConfirmation) {
+        $result = Execute-Obliteration -manifest $manifest
+        Display-Results -outcome $result
     } else {
-        Write-Host "`n🛡️ Wave cancelled - Targets remain intact" -ForegroundColor $script:ColorScheme.Neutral
+        Write-Host "`n🛡️ Wave cancelled - all targets safe" -Fore $ctx.Palette.Neu
     }
     
-    Write-Host "`n[Press any key to exit]"
+    Write-Host "`n[Press any key]"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    
 } catch {
-    Write-Host "`n⚠ System Error: $($_.Exception.Message)" -ForegroundColor Red
-    Start-Sleep -Seconds 3
+    Write-Host "`n⚠ Error: $($_.Exception.Message)" -Fore Red
+    Start-Sleep 2
     exit 1
 }

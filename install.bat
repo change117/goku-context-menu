@@ -94,11 +94,11 @@ set "UNINSTALL=%DRAGON_HOME%\remove-menu.bat"
     echo Removing Dragon Ball context menu...
     echo.
     echo Deleting file entries...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu" /f ^>nul 2^>^&1
+    echo reg delete "HKEY_CURRENT_USER\Software\Classes\*\shell\DragonMenu" /f ^^^>nul 2^^^>^^^&1
     echo Deleting folder entries...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu" /f ^>nul 2^>^&1
+    echo reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\shell\DragonMenu" /f ^^^>nul 2^^^>^^^&1
     echo Deleting background entries...
-    reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\DragonMenu" /f ^>nul 2^>^&1
+    echo reg delete "HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\DragonMenu" /f ^^^>nul 2^^^>^^^&1
     echo.
     echo [OK] Context menu removed
     echo.

@@ -1,0 +1,18 @@
+# Build outputs
+dist/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Windows temporary files
+*.tmp
+*.bak

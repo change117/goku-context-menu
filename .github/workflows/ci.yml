@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  powershell-syntax-check:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: PowerShell syntax check
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $scripts = Get-ChildItem -Path "$PWD\scripts" -Filter '*.ps1' -File
+          if (-not $scripts) {
+            throw 'No PowerShell scripts found in scripts/.'
+          }
+
+          $parseErrors = @()
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $script.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            )
+
+            if ($errors -and $errors.Count -gt 0) {
+              $parseErrors += $errors | ForEach-Object {
+                "${($script.FullName)}:${($_.Extent.StartLineNumber)}:${($_.Extent.StartColumnNumber)} $($_.Message)"
+              }
+            }
+          }
+
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_ }
+            throw "PowerShell parsing failed for $($parseErrors.Count) error(s)."
+          }
+
+          Write-Host "PowerShell syntax check passed for $($scripts.Count) script(s)."

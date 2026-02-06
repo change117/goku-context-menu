@@ -59,23 +59,27 @@ echo [OK] Registry file ready
 
 echo.
 echo [3/4] Applying registry entries...
-echo.
-echo     You will see a registry editor prompt
-echo     Click YES to install the context menu
-echo.
-pause
 
-regedit /s "%REG_TEMP%"
+reg import "%REG_TEMP%" >nul 2>&1
 
 if %errorlevel% equ 0 (
     echo [OK] Registry entries applied
 ) else (
     echo [X] Registry installation failed
+    echo     Error code: %errorlevel%
     pause
     exit /b 1
 )
 
 del "%REG_TEMP%" >nul 2>nul
+
+echo.
+echo [*] Refreshing Windows Explorer...
+
+taskkill /f /im explorer.exe >nul 2>&1
+start explorer.exe
+
+timeout /t 2 >nul
 
 echo.
 echo [4/4] Creating uninstaller...
